@@ -1,14 +1,12 @@
 package com.joshuasalcedo.development.dependency;
 
-import com.joshuasalcedo.development.dependency.Dependency;
-import com.joshuasalcedo.development.dependency.Project;
-import com.joshuasalcedo.development.dependency.Repository;
 import org.apache.maven.api.model.Model;
 import org.apache.maven.model.v4.MavenStaxReader;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileReader;
-import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -16,13 +14,13 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 /**
  * Service class for handling dependency operations, including parsing projects,
@@ -45,13 +43,96 @@ public class DependencyService {
     }
 
     /**
+     * Get the local Maven repository path
+     *
+     * @return The path to the local Maven repository
+     */
+    private static String getLocalRepositoryPath () {
+        // Try to get from settings.xml
+        try {
+            File settingsFile = new File(System.getProperty("user.home") + "/.m2/settings.xml");
+            if (settingsFile.exists()) {
+                String content = Files.readString(settingsFile.toPath());
+                String localRepo = extractTag(content, "localRepository");
+                if (localRepo != null && !localRepo.isEmpty()) {
+                    return localRepo;
+                }
+            }
+
+            // Try from M2_HOME if defined
+            String m2Home = System.getenv("M2_HOME");
+            if (m2Home != null) {
+                File globalSettings = new File(m2Home, "conf/settings.xml");
+                if (globalSettings.exists()) {
+                    String content = Files.readString(globalSettings.toPath());
+                    String localRepo = extractTag(content, "localRepository");
+                    if (localRepo != null && !localRepo.isEmpty()) {
+                        return localRepo;
+                    }
+                }
+            }
+        }
+        catch (Exception e) {
+            // Fall back to default
+        }
+
+        // Default user home .m2 directory
+        return System.getProperty("user.home") + "/.m2/repository";
+    }
+
+    /**
+     * Extract a tag value from XML content
+     *
+     * @param content The XML content
+     * @param tagName The tag name to extract
+     * @return The tag value, or null if not found
+     */
+    private static String extractTag (String content, String tagName) {
+        int start = content.indexOf("<" + tagName + ">");
+        if (start != -1) {
+            start += tagName.length() + 2;
+            int end = content.indexOf("</" + tagName + ">", start);
+            if (end != -1) {
+                return content.substring(start, end).trim();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Gets the path to a dependency in the local repository
+     *
+     * @param groupId    The groupId
+     * @param artifactId The artifactId
+     * @param version    The version
+     * @return The path to the dependency in the local repository
+     */
+    private static String getLocalRepositoryPath (String groupId, String artifactId, String version) {
+        String relativePath = groupId.replace('.', '/') +
+                "/" + artifactId +
+                "/" + version;
+        return LOCAL_REPO_PATH + "/" + relativePath;
+    }
+
+    /**
+     * Checks if a directory contains any jar files
+     *
+     * @param directory The directory to check
+     * @return True if the directory contains any jar files, false otherwise
+     */
+    private static boolean hasAnyJar (File directory) {
+        File[] files = directory.listFiles((dir, name) -> name.endsWith(".jar"));
+        return files != null && files.length > 0;
+    }
+
+    /**
      * Parse a Maven POM file and return a Project object
      *
      * @param pomFile The POM file to parse
      * @return Project object representing the Maven project
      * @throws Exception If the POM file cannot be read or parsed
      */
-    public Project parseProject(File pomFile) throws Exception {
+    public Project parseProject (File pomFile) throws Exception {
         MavenStaxReader reader = new MavenStaxReader();
         Model model;
 
@@ -151,7 +232,7 @@ public class DependencyService {
      * @param project The project to check
      * @throws Exception If there's an error communicating with repositories
      */
-    public void checkForUpdates(Project project) throws Exception {
+    public void checkForUpdates (Project project) throws Exception {
         // Process regular dependencies
         for (Dependency dependency : project.getDependencies()) {
             enrichDependencyMetadata(dependency);
@@ -169,7 +250,7 @@ public class DependencyService {
      * @param dependency The dependency to enrich
      * @throws Exception If there's an error communicating with repositories
      */
-    public void enrichDependencyMetadata(Dependency dependency) throws Exception {
+    public void enrichDependencyMetadata (Dependency dependency) throws Exception {
         // Skip dependencies with property placeholders
         String version = dependency.getVersion();
         if (version != null && version.startsWith("${") && version.endsWith("}")) {
@@ -188,7 +269,7 @@ public class DependencyService {
      *
      * @param dependency The dependency to enrich
      */
-    private void enrichWithLocalRepositoryInfo(Dependency dependency) {
+    private void enrichWithLocalRepositoryInfo (Dependency dependency) {
         List<String> localVersions = getLocalVersions(dependency.getGroupId(), dependency.getArtifactId());
 
         if (!localVersions.isEmpty()) {
@@ -219,7 +300,7 @@ public class DependencyService {
      * @param dependency The dependency to enrich
      * @throws Exception If there's an error communicating with repositories
      */
-    private void enrichWithRemoteRepositoryInfo(Dependency dependency) throws Exception {
+    private void enrichWithRemoteRepositoryInfo (Dependency dependency) throws Exception {
         List<Dependency> remoteResults = searchByCoordinates(
                 dependency.getGroupId(),
                 dependency.getArtifactId()
@@ -264,7 +345,7 @@ public class DependencyService {
      * @param project The project
      * @return List of all dependencies (regular and managed)
      */
-    public List<Dependency> getAllDependencies(Project project) {
+    public List<Dependency> getAllDependencies (Project project) {
         List<Dependency> allDependencies = new ArrayList<>(project.getDependencies());
         allDependencies.addAll(project.getManagedDependencies());
         return allDependencies;
@@ -276,7 +357,7 @@ public class DependencyService {
      * @param project The project
      * @return List of outdated dependencies
      */
-    public List<Dependency> getOutdatedDependencies(Project project) {
+    public List<Dependency> getOutdatedDependencies (Project project) {
         return getAllDependencies(project).stream()
                 .filter(Dependency::isOutdated)
                 .collect(Collectors.toList());
@@ -288,9 +369,9 @@ public class DependencyService {
      * @param project The project
      * @return List of dependencies with conflicts
      */
-    public List<Dependency> getDependenciesWithConflicts(Project project) {
+    public List<Dependency> getDependenciesWithConflicts (Project project) {
         return getAllDependencies(project).stream()
-                .filter(Dependency::hasConflicts)
+                .filter(Dependency::isHasConflicts)
                 .collect(Collectors.toList());
     }
 
@@ -300,21 +381,21 @@ public class DependencyService {
      * @param project The project
      * @return List of dependencies with security issues
      */
-    public List<Dependency> getDependenciesWithSecurityIssues(Project project) {
+    public List<Dependency> getDependenciesWithSecurityIssues (Project project) {
         return getAllDependencies(project).stream()
-                .filter(Dependency::hasSecurityIssues)
+                .filter(Dependency::isHasSecurityIssues)
                 .collect(Collectors.toList());
     }
 
     /**
      * Search Maven repositories for artifacts matching specified coordinates
      *
-     * @param groupId The groupId to search for
+     * @param groupId    The groupId to search for
      * @param artifactId The artifactId to search for
      * @return List of matching dependencies
      * @throws Exception If there's an error communicating with repositories
      */
-    public List<Dependency> searchByCoordinates(String groupId, String artifactId) throws Exception {
+    public List<Dependency> searchByCoordinates (String groupId, String artifactId) throws Exception {
         String query = "g:" + groupId + " AND a:" + artifactId;
         return searchArtifacts(query, 20);
     }
@@ -323,11 +404,11 @@ public class DependencyService {
      * Search Maven repositories for artifacts matching a query
      *
      * @param query The search query
-     * @param rows The maximum number of results to return
+     * @param rows  The maximum number of results to return
      * @return List of matching dependencies
      * @throws Exception If there's an error communicating with repositories
      */
-    public List<Dependency> searchArtifacts(String query, int rows) throws Exception {
+    public List<Dependency> searchArtifacts (String query, int rows) throws Exception {
         String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
         String url = MAVEN_CENTRAL_API + "?q=" + encodedQuery + "&rows=" + rows + "&wt=json";
 
@@ -345,10 +426,10 @@ public class DependencyService {
      * Search Maven repositories asynchronously
      *
      * @param query The search query
-     * @param rows The maximum number of results to return
+     * @param rows  The maximum number of results to return
      * @return CompletableFuture of list of matching dependencies
      */
-    public CompletableFuture<List<Dependency>> searchArtifactsAsync(String query, int rows) {
+    public CompletableFuture<List<Dependency>> searchArtifactsAsync (String query, int rows) {
         String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
         String url = MAVEN_CENTRAL_API + "?q=" + encodedQuery + "&rows=" + rows + "&wt=json";
 
@@ -366,14 +447,14 @@ public class DependencyService {
     /**
      * Get the latest version of a dependency
      *
-     * @param groupId The groupId
+     * @param groupId    The groupId
      * @param artifactId The artifactId
      * @return The latest version, or null if not found
      * @throws Exception If there's an error communicating with repositories
      */
-    public String getLatestVersion(String groupId, String artifactId) throws Exception {
+    public String getLatestVersion (String groupId, String artifactId) throws Exception {
         List<Dependency> results = searchByCoordinates(groupId, artifactId);
-        return results.isEmpty() ? null : results.get(0).getLatestVersion();
+        return results.isEmpty() ? null : results.getFirst().getLatestVersion();
     }
 
     /**
@@ -382,7 +463,7 @@ public class DependencyService {
      * @param json The JSON response from the repository
      * @return List of dependencies from the search results
      */
-    private List<Dependency> parseSearchResults(String json) {
+    private List<Dependency> parseSearchResults (String json) {
         List<Dependency> results = new ArrayList<>();
         try {
             JSONObject jsonObject = new JSONObject(json);
@@ -414,7 +495,8 @@ public class DependencyService {
 
                 results.add(dependency);
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             System.err.println("Error parsing JSON: " + e.getMessage());
         }
 
@@ -422,84 +504,13 @@ public class DependencyService {
     }
 
     /**
-     * Get the local Maven repository path
-     *
-     * @return The path to the local Maven repository
-     */
-    private static String getLocalRepositoryPath() {
-        // Try to get from settings.xml
-        try {
-            File settingsFile = new File(System.getProperty("user.home") + "/.m2/settings.xml");
-            if (settingsFile.exists()) {
-                String content = Files.readString(settingsFile.toPath());
-                String localRepo = extractTag(content, "localRepository");
-                if (localRepo != null && !localRepo.isEmpty()) {
-                    return localRepo;
-                }
-            }
-
-            // Try from M2_HOME if defined
-            String m2Home = System.getenv("M2_HOME");
-            if (m2Home != null) {
-                File globalSettings = new File(m2Home, "conf/settings.xml");
-                if (globalSettings.exists()) {
-                    String content = Files.readString(globalSettings.toPath());
-                    String localRepo = extractTag(content, "localRepository");
-                    if (localRepo != null && !localRepo.isEmpty()) {
-                        return localRepo;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Fall back to default
-        }
-
-        // Default user home .m2 directory
-        return System.getProperty("user.home") + "/.m2/repository";
-    }
-
-    /**
-     * Extract a tag value from XML content
-     *
-     * @param content The XML content
-     * @param tagName The tag name to extract
-     * @return The tag value, or null if not found
-     */
-    private static String extractTag(String content, String tagName) {
-        int start = content.indexOf("<" + tagName + ">");
-        if (start != -1) {
-            start += tagName.length() + 2;
-            int end = content.indexOf("</" + tagName + ">", start);
-            if (end != -1) {
-                return content.substring(start, end).trim();
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Gets the path to a dependency in the local repository
-     *
-     * @param groupId The groupId
-     * @param artifactId The artifactId
-     * @param version The version
-     * @return The path to the dependency in the local repository
-     */
-    private static String getLocalRepositoryPath(String groupId, String artifactId, String version) {
-        String relativePath = groupId.replace('.', '/') +
-                "/" + artifactId +
-                "/" + version;
-        return LOCAL_REPO_PATH + "/" + relativePath;
-    }
-
-    /**
      * Gets available versions of a dependency in the local repository
      *
-     * @param groupId The groupId
+     * @param groupId    The groupId
      * @param artifactId The artifactId
      * @return List of available versions in the local repository
      */
-    private List<String> getLocalVersions(String groupId, String artifactId) {
+    private List<String> getLocalVersions (String groupId, String artifactId) {
         List<String> versions = new ArrayList<>();
 
         // Construct the path to the dependency directory
@@ -524,24 +535,13 @@ public class DependencyService {
     }
 
     /**
-     * Checks if a directory contains any jar files
-     *
-     * @param directory The directory to check
-     * @return True if the directory contains any jar files, false otherwise
-     */
-    private static boolean hasAnyJar(File directory) {
-        File[] files = directory.listFiles((dir, name) -> name.endsWith(".jar"));
-        return files != null && files.length > 0;
-    }
-
-    /**
      * Infer a GitHub URL for a dependency
      *
-     * @param groupId The groupId
+     * @param groupId    The groupId
      * @param artifactId The artifactId
      * @return The inferred GitHub URL, or null if it cannot be inferred
      */
-    private String inferGithubUrl(String groupId, String artifactId) {
+    private String inferGithubUrl (String groupId, String artifactId) {
         // Try to derive GitHub URL from groupId
         String[] groupParts = groupId.split("\\.");
         if (groupParts.length >= 2) {

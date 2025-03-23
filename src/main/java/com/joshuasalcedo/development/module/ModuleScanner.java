@@ -1,6 +1,5 @@
 package com.joshuasalcedo.development.module;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
@@ -14,28 +13,35 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Scanner to find all ApplicationModule annotations
  */
 @Component
 public class ModuleScanner {
-    @Autowired
-    private ApplicationContext applicationContext;
 
-    @Autowired
-    private ModuleRegistry registry;
+    private final ApplicationContext applicationContext;
 
-    @Autowired
-    private RequestMappingHandlerMapping requestMappingHandlerMapping;
+
+    private final ModuleRegistry registry;
+
+
+    private final RequestMappingHandlerMapping requestMappingHandlerMapping;
+
+    public ModuleScanner (ApplicationContext applicationContext, ModuleRegistry registry, RequestMappingHandlerMapping requestMappingHandlerMapping) {
+        this.applicationContext = applicationContext;
+        this.registry = registry;
+        this.requestMappingHandlerMapping = requestMappingHandlerMapping;
+    }
 
     @EventListener
-    public void onApplicationEvent(ContextRefreshedEvent event) {
+    public void onApplicationEvent (ContextRefreshedEvent event) {
         scanComponents();
         scanControllers();
     }
 
-    private void scanComponents() {
+    private void scanComponents () {
         Map<String, Object> beans = applicationContext.getBeansWithAnnotation(Service.class);
 
         for (Object bean : beans.values()) {
@@ -55,7 +61,7 @@ public class ModuleScanner {
         }
     }
 
-    private void scanControllers() {
+    private void scanControllers () {
         // Get all mappings registered with Spring MVC
         Map<RequestMappingInfo, HandlerMethod> handlerMethods =
                 requestMappingHandlerMapping.getHandlerMethods();
@@ -81,7 +87,7 @@ public class ModuleScanner {
         }
     }
 
-    private void processClassAnnotation(Class<?> clazz) {
+    private void processClassAnnotation (Class<?> clazz) {
         ApplicationModule annotation = clazz.getAnnotation(ApplicationModule.class);
         String moduleName = annotation.name().isEmpty() ?
                 clazz.getSimpleName() : annotation.name();
@@ -92,7 +98,7 @@ public class ModuleScanner {
         }
     }
 
-    private void processMethodAnnotation(Class<?> clazz, Method method) {
+    private void processMethodAnnotation (Class<?> clazz, Method method) {
         ApplicationModule annotation = method.getAnnotation(ApplicationModule.class);
         String moduleName = annotation.name().isEmpty() ?
                 method.getName() : annotation.name();
@@ -100,7 +106,7 @@ public class ModuleScanner {
         registerModuleMethod(clazz, method, annotation, moduleName);
     }
 
-    private void processControllerClassAnnotation(Class<?> controllerClass, Method method, String path) {
+    private void processControllerClassAnnotation (Class<?> controllerClass, Method method, String path) {
         ApplicationModule annotation = controllerClass.getAnnotation(ApplicationModule.class);
         String moduleName = annotation.name().isEmpty() ?
                 controllerClass.getSimpleName() : annotation.name();
@@ -109,7 +115,7 @@ public class ModuleScanner {
                 moduleName + "." + method.getName(), path);
     }
 
-    private void processControllerMethodAnnotation(Class<?> controllerClass, Method method, String path) {
+    private void processControllerMethodAnnotation (Class<?> controllerClass, Method method, String path) {
         ApplicationModule annotation = method.getAnnotation(ApplicationModule.class);
         String moduleName = annotation.name().isEmpty() ?
                 method.getName() : annotation.name();
@@ -117,7 +123,7 @@ public class ModuleScanner {
         registerControllerModuleMethod(controllerClass, method, annotation, moduleName, path);
     }
 
-    private void registerModuleMethod(Class<?> clazz, Method method, ApplicationModule annotation, String moduleName) {
+    private void registerModuleMethod (Class<?> clazz, Method method, ApplicationModule annotation, String moduleName) {
         List<String> parameterTypes = getParameterTypeNames(method);
 
         Module module = new Module(
@@ -132,9 +138,9 @@ public class ModuleScanner {
         registry.registerModule(moduleName, module);
     }
 
-    private void registerControllerModuleMethod(Class<?> clazz, Method method,
-                                                ApplicationModule annotation,
-                                                String moduleName, String path) {
+    private void registerControllerModuleMethod (Class<?> clazz, Method method,
+                                                 ApplicationModule annotation,
+                                                 String moduleName, String path) {
         List<String> parameterTypes = getParameterTypeNames(method);
 
         Module module = new Module(
@@ -152,8 +158,8 @@ public class ModuleScanner {
         registry.registerModule(moduleName, module);
     }
 
-    private List<String> getParameterTypeNames(Method method) {
-        return List.of(method.getParameterTypes()).stream()
+    private List<String> getParameterTypeNames (Method method) {
+        return Stream.of(method.getParameterTypes())
                 .map(Class::getSimpleName)
                 .collect(Collectors.toList());
     }
