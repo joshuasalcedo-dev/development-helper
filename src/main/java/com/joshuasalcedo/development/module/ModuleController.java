@@ -25,7 +25,7 @@ public class ModuleController {
     /**
      * Get all application modules
      */
-    @GetMapping("${basePath}/modules")
+    @GetMapping("${module.tracking.basePath:/application}/modules")
     public ResponseEntity<List<Module>> getAllModules () {
         return ResponseEntity.ok(registry.getAllModules());
     }
@@ -33,7 +33,7 @@ public class ModuleController {
     /**
      * Get application modules for a specific app
      */
-    @GetMapping("${basePath}/{appName}/modules")
+    @GetMapping("${module.tracking.basePath:/application}/{appName}/modules")
     public ResponseEntity<List<Module>> getAppModules (@PathVariable String appName) {
         List<Module> appModules = registry.getAllModules().stream()
                 .filter(module -> module.getName().startsWith(appName + "."))

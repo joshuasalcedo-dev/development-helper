@@ -1,12 +1,14 @@
 package com.joshuasalcedo.development.dependency;
 
 import java.io.File;
-import java.util.List; /**
+import java.util.List;
+
+/**
  * Example showing how to use the dependency management library
  */
 public class DependencyManagerExample {
 
-    public static void main(String[] args) {
+    public static void main (String[] args) {
         try {
             // Create the dependency manager
             DependencyManager manager = new DependencyManager();
@@ -25,8 +27,8 @@ public class DependencyManagerExample {
             for (Dependency dependency : project.getDependencies()) {
                 System.out.println(" - " + dependency.getCoordinates() +
                         (dependency.isOutdated() ? " (OUTDATED: " + dependency.getLatestVersion() + ")" : "") +
-                        (dependency.hasConflicts() ? " (CONFLICT)" : "") +
-                        (dependency.hasSecurityIssues() ? " (SECURITY ISSUE)" : ""));
+                        (dependency.isHasConflicts() ? " (CONFLICT)" : "") +
+                        (dependency.isHasConflicts() ? " (SECURITY ISSUE)" : ""));
             }
 
             // Print outdated dependencies
@@ -61,7 +63,8 @@ public class DependencyManagerExample {
                         " (Latest: " + dependency.getLatestVersion() + ")");
             }
 
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             e.printStackTrace();
         }
     }
