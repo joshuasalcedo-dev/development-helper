@@ -1,13 +1,11 @@
 package com.joshuasalcedo.development.config;
 
-import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 
 /**
  * Configuration properties for module tracking
  */
-@Getter
 @ConfigurationProperties(prefix = "module.tracking")
 public class ModuleProperties {
 
@@ -27,13 +25,25 @@ public class ModuleProperties {
     private boolean trackParameters = false;
 
     // Getters and setters
+    
+    public boolean isEnabled() {
+        return enabled;
+    }
 
     public void setEnabled (boolean enabled) {
         this.enabled = enabled;
     }
+    
+    public String getBasePath() {
+        return basePath;
+    }
 
     public void setBasePath (String basePath) {
         this.basePath = basePath;
+    }
+    
+    public boolean isTrackParameters() {
+        return trackParameters;
     }
 
     public void setTrackParameters (boolean trackParameters) {

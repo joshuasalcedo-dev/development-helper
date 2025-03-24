@@ -28,7 +28,7 @@ public class DependencyManagerExample {
                 System.out.println(" - " + dependency.getCoordinates() +
                         (dependency.isOutdated() ? " (OUTDATED: " + dependency.getLatestVersion() + ")" : "") +
                         (dependency.isHasConflicts() ? " (CONFLICT)" : "") +
-                        (dependency.isHasConflicts() ? " (SECURITY ISSUE)" : ""));
+                        (dependency.isHasSecurityIssues() ? " (SECURITY ISSUE)" : ""));
             }
 
             // Print outdated dependencies

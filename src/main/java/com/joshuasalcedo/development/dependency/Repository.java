@@ -1,14 +1,11 @@
 package com.joshuasalcedo.development.dependency;
 
 import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
 
 /**
  * POJO representing a Maven repository
  */
-@Getter
-@Setter
+
 @Builder
 public class Repository {
     private String id;
@@ -18,17 +15,17 @@ public class Repository {
     private boolean isLocal;
 
     // Default constructor
-    public Repository() {
+    public Repository () {
     }
 
     // Constructor with essential fields
-    public Repository(String id, String url) {
+    public Repository (String id, String url) {
         this.id = id;
         this.url = url;
     }
 
     // Constructor with all fields
-    public Repository(String id, String name, String url, String type, boolean isLocal) {
+    public Repository (String id, String name, String url, String type, boolean isLocal) {
         this.id = id;
         this.name = name;
         this.url = url;
@@ -37,10 +34,48 @@ public class Repository {
     }
 
 
-
-
     @Override
-    public String toString() {
+    public String toString () {
         return name != null ? name + " (" + url + ")" : (id != null ? id + " (" + url + ")" : url);
+    }
+
+    public String getId () {
+        return id;
+    }
+
+    public void setId (String id) {
+        this.id = id;
+    }
+
+    public String getName () {
+        return name;
+    }
+
+    public void setName (String name) {
+        this.name = name;
+    }
+
+    public String getUrl () {
+        return url;
+    }
+
+    public void setUrl (String url) {
+        this.url = url;
+    }
+
+    public String getType () {
+        return type;
+    }
+
+    public void setType (String type) {
+        this.type = type;
+    }
+
+    public boolean isLocal () {
+        return isLocal;
+    }
+
+    public void setLocal (boolean local) {
+        isLocal = local;
     }
 }

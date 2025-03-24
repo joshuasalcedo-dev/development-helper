@@ -454,7 +454,7 @@ public class DependencyService {
      */
     public String getLatestVersion (String groupId, String artifactId) throws Exception {
         List<Dependency> results = searchByCoordinates(groupId, artifactId);
-        return results.isEmpty() ? null : results.getFirst().getLatestVersion();
+        return results.isEmpty() ? null : results.get(0).getLatestVersion();
     }
 
     /**
